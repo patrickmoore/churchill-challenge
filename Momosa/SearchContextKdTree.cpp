@@ -57,87 +57,13 @@ SearchContextKdTree::Impl::~Impl()
 
 int32_t SearchContextKdTree::Impl::search_impl(const Rect rect, const int32_t count, Point* out_points)
 {
-    size_t num_results = 0;
-
     m_results.clear();
     m_results.reserve(count);
 
-    // TODO: async this on multiple threads
-    /*
-    for(auto it = m_trees.begin(); it != m_trees.end() && num_results < count; ++it)
-    {
-        num_results += it->query(rect, min_constrained_inserter(m_results));
-    }
-    */
-
-    static const int max_tasks = 2;
-    std::vector<std::future<std::vector<Point>>> futures;
-    futures.reserve(max_tasks);
-
     for(auto it = m_trees.begin(); it != m_trees.end() && m_results.size() < count; ++it)
     {
-        const int iterPos = static_cast<int>(it - m_trees.begin());
-        while(0 &&
-             iterPos % 1024 == 0 &&
-             futures.size() < futures.capacity() && 
-             iterPos < static_cast<int>(m_trees.size() - max_tasks * 4)) 
-        {
-            auto taskIt = it++;
-            futures.push_back(std::async(std::launch::async, [&](KdTree& tree)
-            {
-                std::vector<Point> results;
-                results.reserve(count);
-                tree.query(rect, min_constrained_inserter(results));
-                return results;
-            }, *taskIt));
-        }
-
         it->query(rect, min_constrained_inserter(m_results));
-
-        for(auto& fIt = futures.begin(); fIt != futures.end();)
-        {
-            if(fIt->valid())
-            {
-                auto& results = fIt->get();
-                std::copy(results.begin(), results.end(), min_constrained_inserter(m_results)); 
-                fIt = futures.erase(fIt);
-            }
-            else
-            {
-                ++fIt;
-            }
-        }
     }
-
-    /*
-    for(auto it = m_trees.begin(); it != m_trees.end() && num_results < count; ++it)
-    {
-        concurrency::combinable<std::vector<Point>> cv;
-        if((it - m_trees.begin()) % 1000 && (m_trees.end() - it > 1000))
-        {
-            auto t1 = it++;
-            auto t2 = it++;
-            concurrency::parallel_invoke([&]
-            {
-                cv.local().reserve(count);
-                t1->query(rect, min_constrained_inserter(cv.local()));
-            },
-                [&]
-            {
-                cv.local().reserve(count);
-                t2->query(rect, min_constrained_inserter(cv.local()));
-            });
-        }
-
-        it->query(rect, min_constrained_inserter(m_results));
-
-        cv.combine_each([&](std::vector<Point>& lv)
-        {
-            std::copy(lv.begin(), lv.end(), min_constrained_inserter(m_results)); 
-        });
-    }
-    */
-
 
     std::sort(m_results.begin(), m_results.end(), [](const Point& p1, const Point& p2){ return p1 < p2; });
 

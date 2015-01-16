@@ -24,6 +24,38 @@ struct KdTask
     int dim;
 };
 
+// KdPoint exists for aligned and cache friendly searching through buckets.
+struct KdPoint
+{
+    float x;
+    float y;
+
+    KdPoint(const KdPoint& p) : x(p.x), y(p.y) {}
+    KdPoint(const Point& p) : x(p.x), y(p.y) {}
+
+    KdPoint& operator=(const KdPoint& p) 
+    {
+        x = p.x;
+        y = p.y;
+
+        return *this;
+    }
+
+    KdPoint& operator=(const Point& p) 
+    {
+        x = p.x;
+        y = p.y;
+
+        return *this;
+    }
+
+    bool within(const Rect& r) const 
+    {
+        return x >= r.lx && x <= r.hx && y >= r.ly && y <= r.hy;
+    }
+};
+
+
 class KdNode
 {
 public:
@@ -41,6 +73,7 @@ public:
     bool is_leaf() { return !bucket.empty(); }
 
     std::vector<Point> bucket;
+    std::vector<KdPoint> fast_bucket; // Note: needs to be indexed the same as bucket
     Rect mbr;
     int32_t parent;
     int32_t left;
@@ -52,7 +85,7 @@ class KdTree
 public:
     // TODO: calculate optimum size based on point set. Current value seems to be the quickest for 10M points.
     static const int bucket_size = 128;
-    static const int stack_size = 32;
+    static const int stack_size = 128;
 
     KdTree() {} 
 
@@ -133,11 +166,13 @@ public:
                 assert(items > 0);
 
                 node.bucket.reserve(items);
+                node.fast_bucket.reserve(items);
 
                 auto it_end = indexer.begin() + task.last;
                 for(auto it = indexer.begin() + task.first; it != it_end; ++it)
                 {
                     node.bucket.push_back(points[*it]);
+                    node.fast_bucket.push_back(points[*it]);
                 }
 
                 extendBounds(task.node_index, indexer);
@@ -218,14 +253,16 @@ public:
             }
             else if(node.is_leaf())
             {
-                for(const auto& p : node.bucket)
+                int p_index = 0;
+                for(const auto& p : node.fast_bucket)
                 {
-                    if(contains(region, p)) 
+                    if(p.within(region)) // Hotspot
                     {
-                        *out_it = p;
+                        *out_it = node.bucket[p_index];
                         *out_it++;
                         num_found++;
                     }
+                    ++p_index;
                 }
             }
             else
