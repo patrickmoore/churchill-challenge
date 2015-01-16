@@ -112,43 +112,6 @@ public:
         build(points_begin, points_end); 
     }
 
-    void extendBounds(int index, std::vector<int>& indexer)
-    {
-        assert(index >= 0);
-
-        if(index < 0) { return; }
-
-        auto& node = m_nodes[index];
-        assert(node.is_leaf());
-
-        for(const auto& point : node.bucket)
-        {
-            if(node.mbr.lx > point.x) node.mbr.lx = point.x;
-            if(node.mbr.hx < point.x) node.mbr.hx = point.x;
-            if(node.mbr.ly > point.y) node.mbr.ly = point.y;
-            if(node.mbr.hy < point.y) node.mbr.hy = point.y;
-        }
-
-        extendBounds(node.parent, node.mbr, indexer);
-    }
-
-    void extendBounds(int node_index, const Rect& mbr, std::vector<int>& indexer)
-    {
-        auto index = node_index;
-        while(index >= 0)
-        {
-            auto& node = m_nodes[index];
-            assert(!node.is_leaf());
-
-            if(node.mbr.lx > mbr.lx) node.mbr.lx = mbr.lx;
-            if(node.mbr.hx < mbr.hx) node.mbr.hx = mbr.hx;
-            if(node.mbr.ly > mbr.ly) node.mbr.ly = mbr.ly;
-            if(node.mbr.hy < mbr.hy) node.mbr.hy = mbr.hy;
-
-            index = node.parent;
-        }
-    }
-
     void build(const std::vector<Point>::iterator points_begin, const std::vector<Point>::iterator points_end)
     {
         std::vector<Point> points(points_begin, points_end);
@@ -191,7 +154,7 @@ public:
                     node.fast_bucket.push_back(points[*it]);
                 }
 
-                extendBounds(task.node_index, indexer);
+                extend_bounds(task.node_index, indexer);
             }
             else
             {
@@ -315,6 +278,43 @@ private:
         _BitScanReverse(&index, static_cast<unsigned long>(i-1));
 
         return (size_t(1) << (index + 1));
+    }
+
+    void extend_bounds(int index, std::vector<int>& indexer)
+    {
+        assert(index >= 0);
+
+        if(index < 0) { return; }
+
+        auto& node = m_nodes[index];
+        assert(node.is_leaf());
+
+        for(const auto& point : node.bucket)
+        {
+            if(node.mbr.lx > point.x) node.mbr.lx = point.x;
+            if(node.mbr.hx < point.x) node.mbr.hx = point.x;
+            if(node.mbr.ly > point.y) node.mbr.ly = point.y;
+            if(node.mbr.hy < point.y) node.mbr.hy = point.y;
+        }
+
+        extend_bounds(node.parent, node.mbr, indexer);
+    }
+
+    void extend_bounds(int node_index, const Rect& mbr, std::vector<int>& indexer)
+    {
+        auto index = node_index;
+        while(index >= 0)
+        {
+            auto& node = m_nodes[index];
+            assert(!node.is_leaf());
+
+            if(node.mbr.lx > mbr.lx) node.mbr.lx = mbr.lx;
+            if(node.mbr.hx < mbr.hx) node.mbr.hx = mbr.hx;
+            if(node.mbr.ly > mbr.ly) node.mbr.ly = mbr.ly;
+            if(node.mbr.hy < mbr.hy) node.mbr.hy = mbr.hy;
+
+            index = node.parent;
+        }
     }
 
 private:

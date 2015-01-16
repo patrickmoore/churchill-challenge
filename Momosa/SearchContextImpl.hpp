@@ -55,6 +55,7 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
+/*
 class SearchContextBoostGeometry : public SearchContextImpl<SearchContextBoostGeometry>
 {
 public:
@@ -66,4 +67,5 @@ private:
     class Impl;
     std::unique_ptr<Impl> m_impl;
 };
+*/
 
