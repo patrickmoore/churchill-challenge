@@ -1,3 +1,19 @@
+/*
+ * Copyright (c) 2015 Patrick Moore
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #pragma once
 
 #include <iterator>
@@ -48,7 +64,7 @@ protected:
     {
         auto& c = *container;
         auto max_val_pos = std::max_element(c.begin(), c.end(), 
-            [&](const Val_t& a, const Val_t& b) { return a < b; }); // TODO: and this
+            [&](const Val_t& a, const Val_t& b) { return a < b; }); // TODO: make this a predicate
 
         std::iter_swap(max_val_pos, (c.end()-1));
     }
