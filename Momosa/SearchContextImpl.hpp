@@ -55,7 +55,18 @@ private:
     std::unique_ptr<Impl> m_impl;
 };
 
-/*
+class SearchContextRTree : public SearchContextImpl<SearchContextRTree>
+{
+public:
+    SearchContextRTree(const Point* points_begin, const Point* points_end);
+    ~SearchContextRTree();
+    int32_t search_impl(const Rect rect, const int32_t count, Point* out_points);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
+};
+
 class SearchContextBoostGeometry : public SearchContextImpl<SearchContextBoostGeometry>
 {
 public:
@@ -67,5 +78,4 @@ private:
     class Impl;
     std::unique_ptr<Impl> m_impl;
 };
-*/
 

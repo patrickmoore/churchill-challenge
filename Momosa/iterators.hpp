@@ -34,7 +34,7 @@ public:
     {
     }
 
-    min_con_iterator& operator=(value_type const& value)
+    inline min_con_iterator& operator=(value_type const& value)
     {
         insert_impl(value);
         return (*this);
@@ -55,6 +55,20 @@ public:
         return (*this);
     }
 
+    template<typename Type>
+    bool can_add(Type const& value) const
+    {
+        const auto& c = *container;
+        if(c._Mylast < c._Myend || value < c.back())
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    void clear() { container->clear(); }
+
 protected:
     void move_max_to_back()
     {
@@ -65,10 +79,10 @@ protected:
         std::iter_swap(max_val_pos, (c.end()-1));
     }
 
-    void insert_impl(value_type const& value)
+    inline void insert_impl(value_type const& value)
     {
         auto& c = *container;
-        if(c.size() < c.capacity())
+        if(c._Mylast < c._Myend)  // size() < capacity()
         {
             c.push_back(value);
             move_max_to_back();

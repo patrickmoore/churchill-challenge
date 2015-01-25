@@ -50,10 +50,15 @@ struct Rect
 };
 #pragma pack(pop)
 
-inline bool operator<(const Point& lhs, const Point& rhs) { return lhs.rank < rhs.rank; }
-inline bool operator<=(const Point& lhs, const Point& rhs) { return lhs.rank <= rhs.rank; }
-inline bool operator>(const Point& lhs, const Point& rhs) { return lhs.rank > rhs.rank; }
-inline bool operator>=(const Point& lhs, const Point& rhs) { return lhs.rank >= rhs.rank; }
+template <typename OtherPoint>
+inline bool operator<(const Point& lhs, const OtherPoint& rhs) { return lhs.rank < rhs.rank; }
+template <typename OtherPoint>
+inline bool operator<=(const Point& lhs, const OtherPoint& rhs) { return lhs.rank <= rhs.rank; }
+template <typename OtherPoint>
+inline bool operator>(const Point& lhs, const OtherPoint& rhs) { return lhs.rank > rhs.rank; }
+template <typename OtherPoint>
+inline bool operator>=(const Point& lhs, const OtherPoint& rhs) { return lhs.rank >= rhs.rank; }
+
 
 inline bool intersects(const Rect& a, const Rect& b)
 {
@@ -67,10 +72,62 @@ inline bool contains(const Rect& a, const Rect& b)
 }
 
 // Rect A contains Point B
+template<typename Point>
 inline bool contains(const Rect& a, const Point& b)
 {
     return a.lx <= b.x && a.hx >= b.x && a.ly <= b.y && a.hy >= b.y;
 }
+
+template<typename Point>
+inline bool within(const Rect& a, const Point& b)
+{
+    return b.x >= a.lx && b.x <= a.hx && b.y >= a.ly && b.y <= a.hy;
+}
+
+struct FastPoint
+{
+    float x;
+    float y;
+    int rank;
+    //Point* packed_point;
+
+    FastPoint(const FastPoint& p) : x(p.x), y(p.y), rank(p.rank)/*, packed_point(p.packed_point)*/ {}
+    FastPoint(Point& p) : x(p.x), y(p.y), rank(p.rank) /*, packed_point(&p)*/ {}
+
+    FastPoint& operator=(const FastPoint& p) 
+    {
+        x = p.x;
+        y = p.y;
+        rank = p.rank;
+        //packed_point = p.packed_point;
+
+        return *this;
+    }
+
+    FastPoint& operator=(Point& p) 
+    {
+        x = p.x;
+        y = p.y;
+        rank = p.rank;
+        //packed_point = &p;
+
+        return *this;
+    }
+
+    bool within(const Rect& r) const 
+    {
+        return x >= r.lx && x <= r.hx && y >= r.ly && y <= r.hy;
+    }
+};
+
+template <typename OtherPoint>
+inline bool operator<(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank < rhs.rank; }
+template <typename OtherPoint>
+inline bool operator<=(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank <= rhs.rank; }
+template <typename OtherPoint>
+inline bool operator>(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank > rhs.rank; }
+template <typename OtherPoint>
+inline bool operator>=(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank >= rhs.rank; }
 
 /* Declaration of the struct that is used as the context for the calls. */
 class SearchContext;

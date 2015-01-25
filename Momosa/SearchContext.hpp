@@ -62,7 +62,9 @@ public:
     }
 
 private:
-    SearchContextKdTree m_impl;
+    SearchContextRTree m_impl;
+    //SearchContextKdTree m_impl;
+    //SearchContextBoostGeometry m_impl;
 
 #if defined(VALIDATE)
     SearchContextLinear m_implValidate;
