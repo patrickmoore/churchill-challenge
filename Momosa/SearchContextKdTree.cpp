@@ -43,6 +43,7 @@ SearchContextKdTree::Impl::Impl(const Point* points_begin, const Point* points_e
     if(points_begin < points_end)
     {
         points.insert(points.begin(), points_begin, points_end);
+        points.erase(std::remove_if(points.begin(), points.end(), [](const Point& p){ return (abs(p.x) > 1.0e9 || abs(p.y) > 1.0e9); }  ), points.end());
     }
 
     std::sort(points.begin(), points.end(), [](const Point& p1, const Point& p2){ return p1.rank < p2.rank; });

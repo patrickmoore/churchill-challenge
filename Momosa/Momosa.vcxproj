@@ -85,6 +85,8 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
       <AdditionalIncludeDirectories>D:\dev\boost\boost_1_57_0</AdditionalIncludeDirectories>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -114,17 +116,20 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS;_SECURE_SCL=0;_HAS_ITERATOR_DEBUGGING=0;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS;_SECURE_SCL=0;_HAS_ITERATOR_DEBUGGING=0;_HAS_EXCEPTIONS=0;NDEBUG</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
       <AdditionalIncludeDirectories>D:\dev\boost\boost_1_57_0</AdditionalIncludeDirectories>
+      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <RuntimeTypeInfo>false</RuntimeTypeInfo>
+      <ExceptionHandling>false</ExceptionHandling>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalLibraryDirectories>D:\dev\boost\boost_1_57_0\stage\lib</AdditionalLibraryDirectories>
-      <Profile>true</Profile>
+      <Profile>false</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -140,7 +145,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MomosaApi.cpp" />
-    <ClCompile Include="SearchContextBoostGeometry.cpp" />
     <ClCompile Include="SearchContextKdTree.cpp" />
     <ClCompile Include="SearchContextLinear.cpp" />
     <ClCompile Include="SearchContextRTree.cpp" />

@@ -44,31 +44,6 @@ struct rstar
     static size_t get_min_elements() { return MinElements; }
 };
 
-static inline void initialize(Rect& r)
-{
-    r.lx = std::numeric_limits<float>::max();
-    r.ly = std::numeric_limits<float>::max(); 
-    r.hx = std::numeric_limits<float>::lowest();
-    r.hy = std::numeric_limits<float>::lowest();
-}
-
-template <typename Point>
-inline void extend_bounds(Rect& r, const Point& point)
-{
-    if(r.lx > point.x) r.lx = point.x;
-    if(r.hx < point.x) r.hx = point.x;
-    if(r.ly > point.y) r.ly = point.y;
-    if(r.hy < point.y) r.hy = point.y;
-}
-
-inline void extend_bounds(Rect& a, const Rect& b)
-{
-    if(a.lx > b.lx) a.lx = b.lx;
-    if(a.hx < b.hx) a.hx = b.hx;
-    if(a.ly > b.ly) a.ly = b.ly;
-    if(a.hy < b.hy) a.hy = b.hy;
-}
-
 template <typename Value, typename Parameters>
 class RTree
 {
@@ -87,6 +62,8 @@ public:
     void query(const Rect& region, OutIter out_it)
     {
         if(m_values_count == 0) { return; }
+
+        if(!intersects(region, m_root.mbr)) { return; }
 
         /*
         LARGE_INTEGER frequency;
@@ -147,12 +124,13 @@ private:
 
         bool is_leaf() const { return !leaf.empty(); }
 
+        int32_t rank;
+        Rect mbr;
+
         // Wastes space and isn't sexy, but avoids virtual calls / pointer dereference
         std::vector<Node> nodes;
         std::vector<Value> leaf;
 
-        Rect mbr;
-        int32_t rank;
     };
 
     struct subtree_elements_counts
@@ -180,35 +158,39 @@ private:
             extend_bounds(mbr, *it);
         }
 
+        m_root.mbr = mbr;
+
         const auto elements_count = calculate_subtree_elements_counts(m_values_count, m_parameters, m_height);
 
         nodesToSearch.reserve(elements_count.maxc);
 
-        m_root = per_level(indexer.begin(), indexer.end(), points_begin, mbr, m_values_count, elements_count, m_parameters);
+        per_level(indexer.begin(), indexer.end(), points_begin, mbr, m_values_count, elements_count, m_parameters, m_root);
+        sort_subtree(m_root, [](Node const& n1, Node const& n2) { return n1.rank < n2.rank; } );
     }
 
     template <typename EIt, typename IdxIt> inline static
-    Node per_level(EIt first, EIt last, const IdxIt indexer, const Rect& hint_mbr, std::size_t values_count, subtree_elements_counts const& subtree_counts,
-                               parameters_type const& parameters)
+    void per_level(EIt first, EIt last, const IdxIt indexer, const Rect& hint_mbr, std::size_t values_count, subtree_elements_counts const& subtree_counts,
+                               parameters_type const& parameters, Node& subtree)
     {
         assert(0 < std::distance(first, last) && static_cast<std::size_t>(std::distance(first, last)) == values_count);
+
+        subtree.nodes.emplace_back();
+        auto& n = subtree.nodes.back();
 
         if ( subtree_counts.maxc <= 1 )
         {
             assert(values_count <= parameters.get_max_elements());
 
-            Node n;
             n.leaf.reserve(values_count);
             for(;first != last; ++first)
             {
-                auto& e = *(indexer + *first);
+                auto& e = indexer[*first];
                 n.leaf.push_back(e);
                 extend_bounds(n.mbr, e);
                 if(n.rank > e.rank) { n.rank = e.rank; }
             }
-            std::sort(n.leaf.begin(), n.leaf.end());
 
-            return n;
+            return;
         }
 
         auto next_subtree_counts = subtree_counts;
@@ -216,13 +198,10 @@ private:
         next_subtree_counts.minc /= parameters.get_max_elements();
 
         auto nodes_count = calculate_nodes_count(values_count, subtree_counts);
-        Node n;
         n.nodes.reserve(nodes_count);
 
         per_level_packets(first, last, indexer, hint_mbr, values_count, subtree_counts, next_subtree_counts,
-                          n, parameters);
-
-        return n;
+            n, parameters);
     }
 
     template <typename EIt, typename IdxIt> inline static
@@ -238,7 +217,7 @@ private:
 
         if ( values_count <= subtree_counts.maxc )
         {
-            elements.nodes.push_back(per_level(first, last, indexer, hint_mbr, values_count, next_subtree_counts, parameters));
+            per_level(first, last, indexer, hint_mbr, values_count, next_subtree_counts, parameters, elements);
             extend_bounds(elements.mbr, elements.nodes.back().mbr);
             if(elements.rank > elements.nodes.back().rank) { elements.rank = elements.nodes.back().rank; }
             return;
@@ -253,18 +232,17 @@ private:
         auto right_mbr = hint_mbr;
         if(greatest_dim_index == 0)
         {
-            std::nth_element(first, median, last, [&](int i1, int i2) { return (*(indexer + i1)).x < (*(indexer + i2)).x; });
-            left_mbr.hx = (*(indexer + *median)).x;
+            std::nth_element(first, median, last, [&](int i1, int i2) { return indexer[i1].x < indexer[i2].x; });
+            left_mbr.hx = indexer[*median].x;
             right_mbr.lx = left_mbr.hx;
         }
         else
         {
-            std::nth_element(first, median, last, [&](int i1, int i2) { return (*(indexer + i1)).y < (*(indexer + i2)).y; });
-            left_mbr.hy = (*(indexer + *median)).y;
+            std::nth_element(first, median, last, [&](int i1, int i2) { return indexer[i1].y < indexer[i2].y; });
+            left_mbr.hy = indexer[*median].y;
             right_mbr.ly = left_mbr.hy;
         }
         
-
         per_level_packets(first, median, indexer, left_mbr,
                           median_count, subtree_counts, next_subtree_counts,
                           elements, parameters);
@@ -356,6 +334,23 @@ private:
         return median_count;
     }
 
+    template <typename Pred>
+    void sort_subtree(Node& subtree, Pred& pred)
+    {
+        if(!subtree.is_leaf())
+        {
+            std::sort(subtree.nodes.begin(), subtree.nodes.end(), pred);
+            for(auto& n : subtree.nodes)
+            {
+                sort_subtree(n, pred);
+            }
+        }
+        else
+        {
+            std::sort(subtree.leaf.begin(), subtree.leaf.end());
+        }
+    }
+
     template<typename OutIter>
     void query_recursive(const Rect& region, OutIter out_it)
     {
@@ -379,7 +374,7 @@ private:
                     {
                         for(const auto& p : node.leaf)
                         {
-                            if(within(region, p)) // Hotspot
+                            if(within(region, p))
                             {
                                 if(!out_it.can_add(p)) { break; }
                                 *out_it = p;
@@ -432,6 +427,8 @@ private:
             auto& nodes = subtree.nodes;
             for(auto& node : nodes)
             {
+                if(node.rank > out_it.get_max_rank()) { break; }
+
                 const auto& mbr = node.mbr;
                 if(intersects(region, mbr))
                 {
@@ -450,7 +447,7 @@ private:
                             {
                                 for(auto& n : contained_node.leaf)
                                 {
-                                    if(!out_it.can_add(n)) { break; }
+                                    if(n.rank > out_it.get_max_rank()) { break; }
                                     *out_it = n;
                                 }
                             }
@@ -458,10 +455,8 @@ private:
                             {
                                 for(auto& n : contained_node.nodes)
                                 {
-                                    if(n.rank < out_it.get_max_rank())
-                                    {
-                                        nodesToSearch.push_back(&n);
-                                    }
+                                    if(node.rank > out_it.get_max_rank()) { break; }
+                                    nodesToSearch.push_back(&n);
                                 }
                             }
                         }
@@ -470,8 +465,8 @@ private:
                     {
                         for(const auto& p : node.leaf)
                         {
-                            if(!out_it.can_add(p)) { break; }
-                            if(within(region, p)) // Hotspot
+                            if(p.rank > out_it.get_max_rank()) { break; }
+                            if(within(region, p))
                             {
                                 *out_it = p;
                             }
@@ -479,10 +474,7 @@ private:
                     }
                     else
                     {
-                        if(node.rank < out_it.get_max_rank())
-                        {
-                            nodesToSearch.push_back(&node);
-                        }
+                        nodesToSearch.push_back(&node);
                     }
                 }
             }

@@ -30,11 +30,12 @@ public:
     typedef typename Container::value_type value_type;
 
     explicit min_constrained_iterator(Container& c)
-        : container(&c)
+        : container(c)
+        , max_rank(std::numeric_limits<int32_t>::max())
     {
     }
 
-    inline min_con_iterator& operator=(value_type const& value)
+    __forceinline min_con_iterator& operator=(value_type const& value)
     {
         insert_impl(value);
         return (*this);
@@ -58,8 +59,7 @@ public:
     template<typename Type>
     bool can_add(Type const& value) const
     {
-        const auto& c = *container;
-        if(c._Mylast < c._Myend || value < c.back())
+        if(container._Mylast < container._Myend || value < container.back())
         {
             return true;
         }
@@ -67,35 +67,43 @@ public:
         return false;
     }
 
-    void clear() { container->clear(); }
+    int32_t get_max_rank() const
+    {
+        return max_rank;
+    }
+
+    void clear() { container.clear(); }
 
 protected:
-    void move_max_to_back()
+    __forceinline void move_max_to_back()
     {
-        auto& c = *container;
-        auto max_val_pos = std::max_element(c.begin(), c.end(), 
+        auto max_val_pos = std::max_element(container.begin(), container.end(), 
             [&](const value_type& a, const value_type& b) { return a < b; }); // TODO: make this a predicate
 
-        std::iter_swap(max_val_pos, (c.end()-1));
+        std::iter_swap(max_val_pos, (container.end()-1));
     }
 
-    inline void insert_impl(value_type const& value)
+    __forceinline void insert_impl(value_type const& value)
     {
-        auto& c = *container;
-        if(c._Mylast < c._Myend)  // size() < capacity()
+        if(container._Mylast < container._Myend)  // size() < capacity()
         {
-            c.push_back(value);
-            move_max_to_back();
+            container.push_back(value);
+            if(container._Mylast == container._Myend)  // size() < capacity()
+            {
+                move_max_to_back();
+            }
         }
-        else if(value < c.back()) // TODO: make this a predicate
+        else if(value < container.back()) // TODO: make this a predicate
         {
-            c.back() = value;
+            container.back() = value;
             move_max_to_back();
+            max_rank = container.back().rank;
         }
     }
 
 protected:
-    Container *container;
+    Container &container;
+    int32_t max_rank;
 };
 
 template<class Container> inline
