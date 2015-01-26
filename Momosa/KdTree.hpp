@@ -84,13 +84,15 @@ public:
         mbr.ly = std::numeric_limits<float>::max(); 
         mbr.hx = std::numeric_limits<float>::lowest();
         mbr.hy = std::numeric_limits<float>::lowest();
+        rank = std::numeric_limits<int32_t>::max();
     }
 
     bool is_leaf() { return !bucket.empty(); }
 
     std::vector<Point> bucket;
-    std::vector<KdPoint> fast_bucket; // Note: needs to be indexed the same as bucket
+    std::vector<FastPoint> fast_bucket; // Note: needs to be indexed the same as bucket
     Rect mbr;
+    int32_t rank;
     int32_t parent;
     int32_t left;
     int32_t right;
@@ -100,7 +102,7 @@ class KdTree
 {
 public:
     // TODO: calculate optimum size based on point set. Current value seems to be the quickest for 10M points.
-    static const int bucket_size = 128;
+    static const int bucket_size = 16;
     static const int stack_size = 128;
 
     KdTree() {} 
@@ -186,11 +188,9 @@ public:
     }
 
     template<typename OutIter>
-    size_t query(const Rect& region, OutIter out_it)
+    void query(const Rect& region, OutIter out_it)
     {
-        if(m_nodes.size() == 0) { return 0; }
-
-        int num_found = 0;
+        if(m_nodes.size() == 0) { return; }
 
         m_taskstack.emplace_back((0));
 
@@ -201,63 +201,65 @@ public:
 
             auto& node = m_nodes[task.node_index];
 
-            if(contains(region, node.mbr))
+            if(node.rank > out_it.get_max_rank()) { continue; }
+
+            if(intersects(region, node.mbr))
             {
-                auto stackPos = m_taskstack.size();
-                
-                m_taskstack.emplace_back((task.node_index));
-
-                while(stackPos < m_taskstack.size())
+                if(contains(region, node.mbr))
                 {
-                    auto task = m_taskstack.back();
-                    m_taskstack.pop_back();
+                    auto stackPos = m_taskstack.size();
 
-                    auto& contained_node = m_nodes[task.node_index];
+                    m_taskstack.emplace_back((task.node_index));
 
-                    if(contained_node.is_leaf())
+                    while(stackPos < m_taskstack.size())
                     {
-                        for(const auto& p : contained_node.bucket)
+                        auto task = m_taskstack.back();
+                        m_taskstack.pop_back();
+
+                        auto& contained_node = m_nodes[task.node_index];
+
+                        if(contained_node.rank > out_it.get_max_rank()) { continue; }
+                        if(contained_node.is_leaf())
                         {
-                            *out_it = p;
-                            *out_it++;
-                            num_found++;
+                            for(auto& n : contained_node.bucket)
+                            {
+                                if(!out_it.can_add(n)) { break; }
+                                *out_it = n;
+                            }
+                        }
+                        else
+                        {
+                            m_taskstack.emplace_back((contained_node.right));
+                            m_taskstack.emplace_back((contained_node.left));
                         }
                     }
-                    else
+                }
+                else if(node.is_leaf())
+                {
+                    int i=0;
+                    for(const auto& p : node.fast_bucket)
                     {
-                        m_taskstack.emplace_back((contained_node.right));
-                        m_taskstack.emplace_back((contained_node.left));
+                        if(!out_it.can_add(p)) { break; }
+                        if(within(region, p)) // Hotspot
+                        {
+                            *out_it = node.bucket[i];
+                        }
+                        i++;
                     }
                 }
-            }
-            else if(node.is_leaf())
-            {
-                int p_index = 0;
-                for(const auto& p : node.fast_bucket)
+                else
                 {
-                    if(p.within(region)) // Hotspot
+                    if(intersects(region, m_nodes[node.right].mbr))
                     {
-                        *out_it = node.bucket[p_index];
-                        *out_it++;
-                        num_found++;
+                        m_taskstack.emplace_back((node.right));
                     }
-                    ++p_index;
-                }
-            }
-            else
-            {
-                if(intersects(region, m_nodes[node.right].mbr))
-                {
-                    m_taskstack.emplace_back((node.right));
-                }
-                if(intersects(region, m_nodes[node.left].mbr))
-                {
-                    m_taskstack.emplace_back((node.left));
+                    if(intersects(region, m_nodes[node.left].mbr))
+                    {
+                        m_taskstack.emplace_back((node.left));
+                    }
                 }
             }
         }
-
-        return num_found;
     }
 
     size_t get_num_points()
@@ -295,12 +297,13 @@ private:
             if(node.mbr.hx < point.x) node.mbr.hx = point.x;
             if(node.mbr.ly > point.y) node.mbr.ly = point.y;
             if(node.mbr.hy < point.y) node.mbr.hy = point.y;
+            if(node.rank > point.rank) node.rank = point.rank;
         }
 
-        extend_bounds(node.parent, node.mbr, indexer);
+        extend_bounds(node.parent, node.mbr, node.rank, indexer);
     }
 
-    void extend_bounds(int node_index, const Rect& mbr, std::vector<int>& indexer)
+    void extend_bounds(int node_index, const Rect& mbr, int32_t rank, std::vector<int>& indexer)
     {
         auto index = node_index;
         while(index >= 0)
@@ -312,6 +315,7 @@ private:
             if(node.mbr.hx < mbr.hx) node.mbr.hx = mbr.hx;
             if(node.mbr.ly > mbr.ly) node.mbr.ly = mbr.ly;
             if(node.mbr.hy < mbr.hy) node.mbr.hy = mbr.hy;
+            if(node.rank > rank) node.rank = rank;
 
             index = node.parent;
         }

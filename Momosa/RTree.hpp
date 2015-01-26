@@ -98,6 +98,10 @@ public:
         {
             QueryPerformanceCounter(&t1);
             query_recursive(region, out_it);
+            query_recursive(region, out_it);
+            query_recursive(region, out_it);
+            query_recursive(region, out_it);
+            query_recursive(region, out_it);
             QueryPerformanceCounter(&t2);
             rec_elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart;
         }
@@ -106,12 +110,16 @@ public:
             out_it.clear();
             QueryPerformanceCounter(&t1);
             query_iterative(region, out_it);
+            query_iterative(region, out_it);
+            query_iterative(region, out_it);
+            query_iterative(region, out_it);
+            query_iterative(region, out_it);
             QueryPerformanceCounter(&t2);
             it_elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart;
         }
 
         std::cout << std::endl << "rec: " << rec_elapsedTime << "    it: " << it_elapsedTime << std::endl;
-        */
+        /**/
 
         // note: profiling shows iterative is ~.1.5-2.5 microsecs faster per query
         query_iterative(region, out_it);
@@ -132,6 +140,7 @@ private:
     struct Node
     {
         Node() 
+            : rank(std::numeric_limits<int32_t>::max())
         {
             initialize(mbr);
         }
@@ -143,6 +152,7 @@ private:
         std::vector<Value> leaf;
 
         Rect mbr;
+        int32_t rank;
     };
 
     struct subtree_elements_counts
@@ -194,6 +204,7 @@ private:
                 auto& e = *(indexer + *first);
                 n.leaf.push_back(e);
                 extend_bounds(n.mbr, e);
+                if(n.rank > e.rank) { n.rank = e.rank; }
             }
             std::sort(n.leaf.begin(), n.leaf.end());
 
@@ -229,6 +240,7 @@ private:
         {
             elements.nodes.push_back(per_level(first, last, indexer, hint_mbr, values_count, next_subtree_counts, parameters));
             extend_bounds(elements.mbr, elements.nodes.back().mbr);
+            if(elements.rank > elements.nodes.back().rank) { elements.rank = elements.nodes.back().rank; }
             return;
         }
         
@@ -355,26 +367,29 @@ private:
     {
         for(const auto& node : subtree_node.nodes)
         {
-            if(intersects(region, node.mbr))
+            if(node.rank < out_it.get_max_rank())
             {
-                if(contains(region, node.mbr))
+                if(intersects(region, node.mbr))
                 {
-                    add_leafs(node, region, out_it);
-                }
-                else if(node.is_leaf())
-                {
-                    for(const auto& p : node.leaf)
+                    if(contains(region, node.mbr))
                     {
-                        if(within(region, p)) // Hotspot
+                        add_leafs(node, region, out_it);
+                    }
+                    else if(node.is_leaf())
+                    {
+                        for(const auto& p : node.leaf)
                         {
-                            if(!out_it.can_add(p)) { break; }
-                            *out_it = p;
+                            if(within(region, p)) // Hotspot
+                            {
+                                if(!out_it.can_add(p)) { break; }
+                                *out_it = p;
+                            }
                         }
                     }
-                }
-                else
-                {
-                    recursive_search(node, region, out_it);
+                    else
+                    {
+                        recursive_search(node, region, out_it);
+                    }
                 }
             }
         }
@@ -397,7 +412,10 @@ private:
 
         for(const auto& node : subtree_node.nodes)
         {
-            add_leafs(node, region, out_it);
+            if(node.rank < out_it.get_max_rank())
+            {
+                add_leafs(node, region, out_it);
+            }
         }
     }
 
@@ -440,7 +458,10 @@ private:
                             {
                                 for(auto& n : contained_node.nodes)
                                 {
-                                    nodesToSearch.push_back(&n);
+                                    if(n.rank < out_it.get_max_rank())
+                                    {
+                                        nodesToSearch.push_back(&n);
+                                    }
                                 }
                             }
                         }
@@ -458,7 +479,10 @@ private:
                     }
                     else
                     {
-                        nodesToSearch.push_back(&node);
+                        if(node.rank < out_it.get_max_rank())
+                        {
+                            nodesToSearch.push_back(&node);
+                        }
                     }
                 }
             }

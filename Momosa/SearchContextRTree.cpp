@@ -39,8 +39,8 @@ public:
 private:
     typedef RTree<Point, rstar<16>> rtree_t;
 
-    static const size_t bucket_size = 24000;
-    std::vector<std::unique_ptr<rtree_t>> m_trees;
+    static const size_t bucket_size = 34000;
+    std::vector<rtree_t> m_trees;
     std::vector<Point> points;
     //std::vector<FastPoint> fastpoints;
     std::vector<Point> m_results;
@@ -106,7 +106,7 @@ SearchContextRTree::Impl::Impl(const Point* points_begin, const Point* points_en
 
     while(startIt != endIt)
     {
-        m_trees.emplace_back(new rtree_t(startIt, lastIt));
+        m_trees.push_back(rtree_t(startIt, lastIt));
         startIt = lastIt != endIt ? lastIt : endIt;
         lastIt = startIt + std::min(bucket_size, static_cast<size_t>(endIt - startIt));
     }
@@ -122,12 +122,13 @@ int32_t SearchContextRTree::Impl::search_impl(const Rect rect, const int32_t cou
     m_results.clear();
     m_results.reserve(count);
 
-    for(auto it = m_trees.begin(); it != m_trees.end() && m_results.size() < count; ++it)
+    for(auto& tree : m_trees)
     {
-        (*it)->query(rect, min_constrained_inserter(m_results));
+        tree.query(rect, min_constrained_inserter(m_results));
+        if(m_results.size() >= count) { break; }
     }
 
-    std::sort(m_results.begin(), m_results.end(), [](const Point& p1, const Point& p2){ return p1 < p2; });
+    std::sort(m_results.begin(), m_results.end());
 
     for(auto& result : m_results)
     {
