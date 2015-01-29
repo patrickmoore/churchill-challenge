@@ -77,9 +77,7 @@ public:
 protected:
     __forceinline void move_max_to_back()
     {
-        auto max_val_pos = std::max_element(container.begin(), container.end(), 
-            [&](const value_type& a, const value_type& b) { return a < b; }); // TODO: make this a predicate
-
+        auto max_val_pos = std::max_element(container.begin(), container.end()); 
         std::iter_swap(max_val_pos, (container.end()-1));
     }
 

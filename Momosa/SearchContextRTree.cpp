@@ -27,16 +27,16 @@ public:
     Impl(const Point* points_begin, const Point* points_end);
     ~Impl();
 
-    int32_t search_impl(const Rect rect, const int32_t count, Point* out_points);
+    int32_t search_impl(const Rect& rect, const int32_t count, Point* out_points);
 
 private:
-    typedef RTree<Point, rstar<25>> rtree_t;
+    typedef RTree<Point, rtree_parameters<25>> rtree_t;
 
     static const size_t partition_size = 315000;
     std::vector<rtree_t> m_trees;
-    //std::vector<Point> points;
-    //std::vector<FastPoint> fastpoints;
     std::vector<Point> m_results;
+    std::vector<Point> m_y_sorted;
+    std::vector<Point> m_x_sorted;
     Rect mbr;
 };
 
@@ -50,7 +50,13 @@ SearchContextRTree::Impl::Impl(const Point* points_begin, const Point* points_en
         points.erase(std::remove_if(points.begin(), points.end(), [](const Point& p){ return (abs(p.x) > 1.0e9 || abs(p.y) > 1.0e9); }  ), points.end());
     }
 
-    std::sort(points.begin(), points.end(), [](const Point& p1, const Point& p2){ return p1.rank < p2.rank; });
+    m_x_sorted = points;
+    m_y_sorted = points;
+
+    std::sort(points.begin(), points.end());
+
+    std::sort(m_x_sorted.begin(), m_x_sorted.end(), [](Point const& p1, Point const& p2) { return p1.x < p2.x; } );
+    std::sort(m_y_sorted.begin(), m_y_sorted.end(), [](Point const& p1, Point const& p2) { return p1.y < p2.y; } );
 
     initialize(mbr);
     for(auto& p : points)
@@ -60,10 +66,6 @@ SearchContextRTree::Impl::Impl(const Point* points_begin, const Point* points_en
 
     m_trees.reserve(points.size() / partition_size + 1);
 
-/*////////
-    fastpoints.insert(fastpoints.begin(), points.begin(), points.end());
-/*/////////*/
-
     auto beginIt = points.begin();
     auto endIt = points.end();
 
@@ -72,7 +74,8 @@ SearchContextRTree::Impl::Impl(const Point* points_begin, const Point* points_en
 
     while(startIt != endIt)
     {
-        m_trees.push_back(rtree_t(startIt, lastIt));
+        m_trees.emplace_back(startIt, lastIt);
+
         startIt = lastIt != endIt ? lastIt : endIt;
         lastIt = startIt + std::min(partition_size, static_cast<size_t>(endIt - startIt));
     }
@@ -83,67 +86,90 @@ SearchContextRTree::Impl::~Impl()
 {
 }
 
-int32_t SearchContextRTree::Impl::search_impl(const Rect rect, const int32_t count, Point* out_points)
+//#define PROFILE 1
+
+#if defined(PROFILE)
+static double max_elapsed = 0.0;
+static int maxed_iteration = 0;
+Rect max_rect;
+static int maxed_returned_results = 0;
+#endif
+
+int32_t SearchContextRTree::Impl::search_impl(const Rect& rect, const int32_t count, Point* out_points)
 {
     m_results.clear();
     m_results.reserve(count);
 
     if(!intersects(rect, mbr)) { return 0; }
 
+#if defined(PROFILE)
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER t1,t2;
+    double elapsedTime;
+    QueryPerformanceFrequency(&frequency);
+
+    QueryPerformanceCounter(&t1);
+#endif
+    int iteration = 0;
+
     auto& reporter = min_constrained_inserter(m_results);
-    for(auto& tree : m_trees)
+
+    if(rect.hx - rect.lx < .0001)
     {
-        tree.query(rect, reporter);
-        if(m_results.size() >= count) { break; }
+        auto compare = [](Point const& p, float v) { return p.x < v; };
+        auto first = std::lower_bound(m_x_sorted.begin(), m_x_sorted.end(), rect.lx, compare);
+        for(; first != m_x_sorted.end() && first->x < rect.hx; ++first)
+        {
+            auto py = first->y;
+            if(py >= rect.ly && py <= rect.hy)
+            {
+                *reporter = *first;
+            }
+        }
     }
+    else if(rect.hy - rect.ly < .0001)
+    {
+        auto compare = [](Point const& p, float v) { return p.y < v; };
+        auto first = std::lower_bound(m_y_sorted.begin(), m_y_sorted.end(), rect.ly, compare);
+        for(; first != m_y_sorted.end() && first->y < rect.hy; ++first)
+        {
+            auto px = first->x;
+            if(px >= rect.lx && px <= rect.hx)
+            {
+                *reporter = *first;
+            }
+        }
+    }
+    else
+    {
+        for(auto& tree : m_trees)
+        {
+            tree.query(rect, reporter);
+            iteration++;
+            if(m_results.size() >= count) { break; }
+        }
+    }
+
+#if defined(PROFILE)
+    QueryPerformanceCounter(&t2);
+    elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart * 1000;
+    if(elapsedTime > max_elapsed)
+    {
+        max_elapsed = elapsedTime;
+        maxed_iteration = iteration-1;
+        max_rect = rect;
+        maxed_returned_results = static_cast<int>(m_results.size());
+    }
+
+    std::cout.precision(12);
+    std::cout << "it: " << elapsedTime << "     max: " << max_elapsed << std::endl;
+    std::cout << "    iteration: " << maxed_iteration << "    rect: " << max_rect.lx << " " << max_rect.hx << " " <<  max_rect.ly << " " << max_rect.hy << std::endl;
+    std::cout << "    results: " << maxed_returned_results << std::endl;
+#endif
 
     std::sort(m_results.begin(), m_results.end());
 
     memcpy(out_points, m_results.data(), sizeof(Point)*m_results.size());
-
-/*/////
-    LARGE_INTEGER frequency;
-    LARGE_INTEGER t1,t2;
-    double unaligned_elapsedTime;
-    double aligned_elapsedTime;
-    QueryPerformanceFrequency(&frequency);
-
-    Rect r = { -10000.0, -10000., 10000., 10000.};
-    bool d1, d2;
-    Sleep(5);
-    int dummy2=0;
-    {
-        QueryPerformanceCounter(&t1);
-        for(auto& p : fastpoints)
-        {
-            for(int i=0;i<100;i++)
-            d2=contains(r, p);
-        }
-        QueryPerformanceCounter(&t2);
-        aligned_elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart;
-    }
-
-    Sleep(5);
-
-    int dummy1=0;
-    {
-        QueryPerformanceCounter(&t1);
-        for(auto& p : points)
-        {
-            for(int i=0;i<100;i++)
-            d1 = contains(r, p);
-        }
-        QueryPerformanceCounter(&t2);
-        unaligned_elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart;
-    }
-
-
-    std::cout << d1 << d2;
-
-    std::cout << std::endl << "Unaligned: " << unaligned_elapsedTime << "    Aligned: " << aligned_elapsedTime << std::endl;
-
-
-/*/////////*/
 
     return static_cast<int32_t>(m_results.size());
 }
@@ -160,7 +186,7 @@ SearchContextRTree::~SearchContextRTree()
 {
 }
 
-int32_t SearchContextRTree::search_impl(const Rect rect, const int32_t count, Point* out_points)
+int32_t SearchContextRTree::search_impl(const Rect& rect, const int32_t count, Point* out_points)
 {
     return m_impl->search_impl(rect, count, out_points);
 }

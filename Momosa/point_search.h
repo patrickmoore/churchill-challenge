@@ -111,67 +111,6 @@ inline void extend_bounds(Rect& a, const Rect& b)
     if(a.hy < b.hy) a.hy = b.hy;
 }
 
-#if 0
-struct IntRect
-{
-    int lx;
-    int ly;
-    int hx;
-    int hy;
-};
-
-struct IntPoint
-{
-    int x;
-    int y;
-    //int32_t rank;
-
-    IntPoint(const IntPoint& p) 
-        : x(p.x)
-        , y(p.y)
-        //, rank(p.rank) 
-    {}
-    IntPoint(Point& p) 
-        : x(p.x * 10000)
-        , y(p.y * 10000)
-        //, rank(p.rank) 
-    {}
-
-    IntPoint& operator=(const IntPoint& p) 
-    {
-        x = p.x;
-        y = p.y;
-        //rank = p.rank;
-
-        return *this;
-    }
-
-    IntPoint& operator=(Point& p) 
-    {
-        x = p.x;
-        y = p.y;
-        //rank = p.rank;
-
-        return *this;
-    }
-
-    Point toPoint()
-    {
-        Point p = {1, 1, x/10000.0, y/10000.0};
-        return p;
-    }
-};
-
-template <typename OtherPoint>
-inline bool operator<(const IntPoint& lhs, const OtherPoint& rhs) { return lhs.rank < rhs.rank; }
-template <typename OtherPoint>
-inline bool operator<=(const IntPoint& lhs, const OtherPoint& rhs) { return lhs.rank <= rhs.rank; }
-template <typename OtherPoint>
-inline bool operator>(const IntPoint& lhs, const OtherPoint& rhs) { return lhs.rank > rhs.rank; }
-template <typename OtherPoint>
-inline bool operator>=(const IntPoint& lhs, const OtherPoint& rhs) { return lhs.rank >= rhs.rank; }
-#endif
-
 struct FastPoint
 {
     float x;

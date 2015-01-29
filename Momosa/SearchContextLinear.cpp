@@ -23,7 +23,7 @@ public:
     Impl(const Point* points_begin, const Point* points_end);
     ~Impl();
 
-    int32_t search_impl(const Rect rect, const int32_t count, Point* out_points);
+    int32_t search_impl(const Rect& rect, const int32_t count, Point* out_points);
 
 private:
     std::vector<Point> points;
@@ -44,7 +44,7 @@ SearchContextLinear::Impl::~Impl()
 {
 }
 
-int32_t SearchContextLinear::Impl::search_impl(const Rect rect, const int32_t count, Point* out_points)
+int32_t SearchContextLinear::Impl::search_impl(const Rect& rect, const int32_t count, Point* out_points)
 {
     result_points.clear();
     result_points.reserve(count);
@@ -84,7 +84,7 @@ SearchContextLinear::~SearchContextLinear()
 {
 }
 
-int32_t SearchContextLinear::search_impl(const Rect rect, const int32_t count, Point* out_points)
+int32_t SearchContextLinear::search_impl(const Rect& rect, const int32_t count, Point* out_points)
 {
     return m_impl->search_impl(rect, count, out_points);
 }

@@ -44,7 +44,7 @@ public:
 
     ~SearchContext() {}
 
-    int32_t search(const Rect rect, const int32_t count, Point* out_points)
+    int32_t search(const Rect& rect, const int32_t count, Point* out_points)
     {
 #if defined(VALIDATE)
         Point out_valid1[20];

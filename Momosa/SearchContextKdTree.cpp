@@ -27,7 +27,7 @@ public:
     Impl(const Point* points_begin, const Point* points_end);
     ~Impl();
 
-    int32_t search_impl(const Rect rect, const int32_t count, Point* out_points);
+    int32_t search_impl(const Rect& rect, const int32_t count, Point* out_points);
 
 private:
     // TODO: calculate optimum size based on point set. Current value seems to be the quickest for 10M points.
@@ -66,7 +66,7 @@ SearchContextKdTree::Impl::~Impl()
 {
 }
 
-int32_t SearchContextKdTree::Impl::search_impl(const Rect rect, const int32_t count, Point* out_points)
+int32_t SearchContextKdTree::Impl::search_impl(const Rect& rect, const int32_t count, Point* out_points)
 {
     m_results.clear();
     m_results.reserve(count);
@@ -99,7 +99,7 @@ SearchContextKdTree::~SearchContextKdTree()
 {
 }
 
-int32_t SearchContextKdTree::search_impl(const Rect rect, const int32_t count, Point* out_points)
+int32_t SearchContextKdTree::search_impl(const Rect& rect, const int32_t count, Point* out_points)
 {
     return m_impl->search_impl(rect, count, out_points);
 }
