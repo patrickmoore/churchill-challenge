@@ -84,13 +84,14 @@
       <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <AdditionalIncludeDirectories>D:\dev\boost\boost_1_57_0</AdditionalIncludeDirectories>
-      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\dev\boost\boost_1_57_0\stage\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -116,32 +117,34 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS;_SECURE_SCL=0;_HAS_ITERATOR_DEBUGGING=0;_HAS_EXCEPTIONS=0;NDEBUG</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS;_SECURE_SCL=0;_HAS_ITERATOR_DEBUGGING=0;NDEBUG;_HAS_EXCEPTIONS=0</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
-      <AdditionalIncludeDirectories>D:\dev\boost\boost_1_57_0</AdditionalIncludeDirectories>
-      <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
+      <AdditionalIncludeDirectories>
+      </AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <ExceptionHandling>false</ExceptionHandling>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <AdditionalOptions>/d2Zi+ %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalLibraryDirectories>D:\dev\boost\boost_1_57_0\stage\lib</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>
+      </AdditionalLibraryDirectories>
       <Profile>false</Profile>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="geometry.hpp" />
     <ClInclude Include="iterators.hpp" />
     <ClInclude Include="KdTree.hpp" />
     <ClInclude Include="MomosaApi.hpp" />
     <ClInclude Include="point_search.h" />
-    <ClInclude Include="ResultReporter.hpp" />
     <ClInclude Include="RTree.hpp" />
     <ClInclude Include="SearchContext.hpp" />
     <ClInclude Include="SearchContextImpl.hpp" />
+    <ClInclude Include="TaskStack.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MomosaApi.cpp" />
