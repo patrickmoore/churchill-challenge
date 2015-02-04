@@ -81,7 +81,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMOSA_DLL_EXPORTS;NOMINMAX;</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
       <AdditionalIncludeDirectories>
@@ -117,15 +117,14 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMONAV_DLL_EXPORTS;_SECURE_SCL=0;_HAS_ITERATOR_DEBUGGING=0;NDEBUG;_HAS_EXCEPTIONS=0</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDLL;%(PreprocessorDefinitions);MOMOSA_DLL_EXPORTS;NOMINMAX;_SECURE_SCL=0;_HAS_ITERATOR_DEBUGGING=0;NDEBUG</PreprocessorDefinitions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <FloatingPointModel>Fast</FloatingPointModel>
       <AdditionalIncludeDirectories>
       </AdditionalIncludeDirectories>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
-      <ExceptionHandling>false</ExceptionHandling>
+      <ExceptionHandling>Sync</ExceptionHandling>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
-      <AdditionalOptions>/d2Zi+ %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -137,8 +136,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="profile.hpp" />
+    <ClInclude Include="statistics.hpp" />
     <ClInclude Include="iterators.hpp" />
-    <ClInclude Include="KdTree.hpp" />
     <ClInclude Include="MomosaApi.hpp" />
     <ClInclude Include="point_search.h" />
     <ClInclude Include="RTree.hpp" />
@@ -148,8 +148,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="MomosaApi.cpp" />
-    <ClCompile Include="SearchContextKdTree.cpp" />
-    <ClCompile Include="SearchContextLinear.cpp" />
     <ClCompile Include="SearchContextRTree.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
