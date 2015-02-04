@@ -18,13 +18,13 @@
 #include "SearchContext.hpp"
 
 
-SearchContext* create(const Point* points_begin, const Point* points_end)
+SearchContext* create(Point const* points_begin, Point const* points_end)
 {
     SearchContext* context = new SearchContext(points_begin, points_end);
     return context;
 }
 
-int32_t search(SearchContext* sc, const Rect rect, const int32_t count, Point* out_points)
+int32_t search(SearchContext* sc, Rect const rect, int32_t const count, Point* out_points)
 {
     return sc->search(rect, count, out_points);
 }

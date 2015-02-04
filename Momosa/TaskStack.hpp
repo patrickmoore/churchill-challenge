@@ -18,6 +18,7 @@
 
 #include <memory>
 
+// Using as replacement for vector in the iterative search. Trades safety for a slight speed increase.
 template <typename Type>
 class TaskStack
 {
@@ -27,7 +28,7 @@ public:
         , m_size(0)
     {}
 
-    TaskStack(const TaskStack& t)
+    TaskStack(TaskStack const& t)
     {
         m_size = t.m_size;
         m_stack = new Type[m_size];
@@ -62,7 +63,7 @@ public:
         return m_current == 0;
     }
 
-    void push_back(const Type& value)
+    void push_back(Type const& value)
     {
         assert(m_current < m_size);
         m_stack[m_current] = value;

@@ -51,36 +51,29 @@ struct Rect
 };
 #pragma pack(pop)
 
-template <typename OtherPoint>
-inline bool operator<(const Point& lhs, const OtherPoint& rhs) { return lhs.rank < rhs.rank; }
-template <typename OtherPoint>
-inline bool operator<=(const Point& lhs, const OtherPoint& rhs) { return lhs.rank <= rhs.rank; }
-template <typename OtherPoint>
-inline bool operator>(const Point& lhs, const OtherPoint& rhs) { return lhs.rank > rhs.rank; }
-template <typename OtherPoint>
-inline bool operator>=(const Point& lhs, const OtherPoint& rhs) { return lhs.rank >= rhs.rank; }
+// Custom Begin
+inline bool operator<(Point const& lhs, Point const& rhs) { return lhs.rank < rhs.rank; }
+inline bool operator>(Point const& lhs, Point const& rhs) { return lhs.rank > rhs.rank; }
+inline bool operator<=(Point const& lhs, Point const& rhs) { return lhs.rank <= rhs.rank; }
+inline bool operator>=(Point const& lhs, Point const& rhs) { return lhs.rank >= rhs.rank; }
 
-template <typename Rect>
 inline bool intersects(const Rect& a, const Rect& b)
 {
     return a.lx <= b.hx && a.hx >= b.lx && a.ly <= b.hy && a.hy >= b.ly;
 }
 
 // Rect A contains Rect B
-template <typename Rect>
 inline bool contains(const Rect& a, const Rect& b)
 {
     return a.lx <= b.lx && a.ly <= b.ly && a.hx >= b.hx && a.hy >= b.hy;
 }
 
 // Rect A contains Point B
-template<typename Rect, typename Point>
 inline bool contains(const Rect& a, const Point& b)
 {
     return a.lx <= b.x && a.hx >= b.x && a.ly <= b.y && a.hy >= b.y;
 }
 
-template<typename Rect, typename Point>
 inline bool within(const Rect& a, const Point& b)
 {
     return b.x >= a.lx && b.x <= a.hx && b.y >= a.ly && b.y <= a.hy;
@@ -94,7 +87,6 @@ static inline void initialize(Rect& r)
     r.hy = std::numeric_limits<float>::lowest();
 }
 
-template <typename Point>
 inline void extend_bounds(Rect& r, const Point& point)
 {
     if(r.lx > point.x) r.lx = point.x;
@@ -111,50 +103,27 @@ inline void extend_bounds(Rect& a, const Rect& b)
     if(a.hy < b.hy) a.hy = b.hy;
 }
 
-struct FastPoint
+inline std::size_t get_longest_edge(const Rect& r)
 {
-    float x;
-    float y;
-    int32_t rank;
-    //Point* packed_point;
+    return r.hx - r.lx > r.hy - r.ly ? 0 : 1;
+}
 
-    FastPoint(const FastPoint& p) : x(p.x), y(p.y), rank(p.rank)/*, packed_point(p.packed_point)*/ {}
-    FastPoint(Point& p) : x(p.x), y(p.y), rank(p.rank) /*, packed_point(&p)*/ {}
+template<std::size_t I> inline typename std::enable_if<I == 0, float>::type get_dim_coord_lo(Rect const& r) { return r.lx; }
+template<std::size_t I> inline typename std::enable_if<I == 0, float&>::type get_dim_coord_lo(Rect& r) { return r.lx; }
 
-    FastPoint& operator=(const FastPoint& p) 
-    {
-        x = p.x;
-        y = p.y;
-        rank = p.rank;
-        //packed_point = p.packed_point;
+template<std::size_t I> inline typename std::enable_if<I == 1, float>::type get_dim_coord_lo(Rect const& r) { return r.ly; }
+template<std::size_t I> inline typename std::enable_if<I == 1, float&>::type get_dim_coord_lo(Rect& r) { return r.ly; }
 
-        return *this;
-    }
+template<std::size_t I> inline typename std::enable_if<I == 0, float>::type get_dim_coord_hi(Rect const& r) { return r.hx; }
+template<std::size_t I> inline typename std::enable_if<I == 0, float&>::type get_dim_coord_hi(Rect& r) { return r.hx; }
 
-    FastPoint& operator=(Point& p) 
-    {
-        x = p.x;
-        y = p.y;
-        rank = p.rank;
-        //packed_point = &p;
+template<std::size_t I> inline typename std::enable_if<I == 1, float>::type get_dim_coord_hi(Rect const& r) { return r.hy; }
+template<std::size_t I> inline typename std::enable_if<I == 1, float&>::type get_dim_coord_hi(Rect& r) { return r.hy; }
 
-        return *this;
-    }
+template<std::size_t I, typename Point> inline typename std::enable_if<I == 0, float>::type get_dim_coord(Point const& p) { return static_cast<float>(p.x); }
+template<std::size_t I, typename Point> inline typename std::enable_if<I == 1, float>::type get_dim_coord(Point const& p) { return static_cast<float>(p.y); }
+// Custom End 
 
-    bool within(const Rect& r) const 
-    {
-        return x >= r.lx && x <= r.hx && y >= r.ly && y <= r.hy;
-    }
-};
-
-template <typename OtherPoint>
-inline bool operator<(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank < rhs.rank; }
-template <typename OtherPoint>
-inline bool operator<=(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank <= rhs.rank; }
-template <typename OtherPoint>
-inline bool operator>(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank > rhs.rank; }
-template <typename OtherPoint>
-inline bool operator>=(const FastPoint& lhs, const OtherPoint& rhs) { return lhs.rank >= rhs.rank; }
 
 /* Declaration of the struct that is used as the context for the calls. */
 class SearchContext;

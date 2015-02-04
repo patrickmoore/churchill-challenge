@@ -18,110 +18,48 @@
 
 #include <algorithm>
 #include <vector>
-#include <iterator>
 #include <assert.h>
 
 #include "TaskStack.hpp"
 #include "point_search.h"
 
-#include <iostream>
-#include <windows.h>
-#undef min
-#undef max
-
-template <size_t MaxElements>
+template <std::size_t MaxElements>
 struct default_min_elements
 {
-    static const size_t raw_value = (MaxElements * 4) / 10;
-    static const size_t value = 1 <= raw_value ? raw_value : 1;
+    static const std::size_t raw_value = (MaxElements * 4) / 10;
+    static const std::size_t value = 1 <= raw_value ? raw_value : 1;
 };
 
-template <size_t MaxElements, size_t MinElements = default_min_elements<MaxElements>::value>
+template <std::size_t MaxElements, std::size_t MinElements = default_min_elements<MaxElements>::value>
 struct rtree_parameters
 {
-    static const size_t max_elements = MaxElements;
-    static const size_t min_elements = MinElements;
+    static const std::size_t max_elements = MaxElements;
+    static const std::size_t min_elements = MinElements;
 
-    static size_t get_max_elements() { return MaxElements; }
-    static size_t get_min_elements() { return MinElements; }
+    static std::size_t get_max_elements() { return MaxElements; }
+    static std::size_t get_min_elements() { return MinElements; }
 };
 
 template <typename Value, typename Parameters>
 class RTree
 {
 public:
-    typedef std::vector<int> indexer_type;
-
     template <typename Iterator>
-    explicit RTree(const Iterator points_begin, const Iterator points_end, const Parameters& parameters = Parameters()) 
+    explicit RTree(Iterator points_begin, Iterator points_end, Parameters const& parameters = Parameters()) 
         : m_parameters(parameters), m_values_count(0), m_height(0)
     { 
         build(points_begin, points_end); 
     }
 
     template<typename OutIter>
-    void query(const Rect& region, OutIter& out_it)
+    void query(Rect const& region, OutIter& out_it)
     {
         if(m_values_count == 0) { return; }
 
         if(!intersects(region, m_root.mbr)) { return; }
 
-        /*
-        LARGE_INTEGER frequency;
-        LARGE_INTEGER t1,t2;
-        double rec_elapsedTime;
-        double it_elapsedTime;
-        QueryPerformanceFrequency(&frequency);
-
-        {
-            QueryPerformanceCounter(&t1);
-            query_recursive(region, out_it);
-            out_it.clear();
-            query_recursive(region, out_it);
-            out_it.clear();
-            query_recursive(region, out_it);
-            out_it.clear();
-            query_recursive(region, out_it);
-            out_it.clear();
-            query_recursive(region, out_it);
-            out_it.clear();
-            QueryPerformanceCounter(&t2);
-            rec_elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart;
-        }
-
-        {
-            out_it.clear();
-            QueryPerformanceCounter(&t1);
-            query_iterative(region, out_it);
-            out_it.clear();
-            query_iterative(region, out_it);
-            out_it.clear();
-            query_iterative(region, out_it);
-            out_it.clear();
-            query_iterative(region, out_it);
-            out_it.clear();
-            query_iterative(region, out_it);
-            out_it.clear();
-            QueryPerformanceCounter(&t2);
-            it_elapsedTime=(double)(t2.QuadPart-t1.QuadPart)/frequency.QuadPart;
-        }
-
-        std::cout << std::endl << "rec: " << rec_elapsedTime << "    it: " << it_elapsedTime << std::endl;
-        /**/
-
         // note: profiling shows iterative is ~.1.5-2.5 microsecs faster per query
         query_iterative(region, out_it);
-    }
-
-    size_t get_num_points()
-    {
-        size_t num_points = 0; 
-        for(auto& n : m_nodes)
-        {
-            num_points += n.bucket.size();
-        }
-
-        return num_points;
     }
 
 private:
@@ -150,15 +88,10 @@ private:
     };
 
     template <typename Iterator>
-    void build(const Iterator points_begin, const Iterator points_end)
+    void build(Iterator points_begin, Iterator points_end)
     {
         m_values_count = std::distance(points_begin, points_end);
         if(m_values_count == 0) { return; }
-
-        // Used to index into the points vector. Its faster to sort the indexer at the expense of using more memory.
-        indexer_type indexer(m_values_count);
-        int increment = 0;
-        std::generate(indexer.begin(), indexer.end(), [&increment]()->int { return increment++; } );
 
         for(auto it = points_begin; it != points_end; ++it)
         {
@@ -166,34 +99,31 @@ private:
         }
 
         const auto elements_count = calculate_subtree_elements_counts(m_values_count, m_parameters, m_height);
-
         nodesToSearch.reserve(elements_count.max_count);
 
-        generate_subtree(indexer.begin(), indexer.end(), points_begin, m_root.mbr, m_values_count, elements_count, m_root, m_parameters);
+        auto dim = get_longest_edge(m_root.mbr);
+        generate_subtree(points_begin, points_end, m_root.mbr, m_values_count, elements_count, m_root, dim, m_parameters);
 
         sort_subtree(m_root, [](Node const& n1, Node const& n2) { return n1.rank < n2.rank; } );
     }
 
-    template <typename EIt, typename IdxIt> inline static
-    void generate_subtree(EIt first, EIt last, const IdxIt indexer, const Rect& super_mbr, std::size_t values_count, 
-                            subtree_elements_counts const& subtree_counts, Node& subtree, Parameters const& parameters)
+    template <typename EIt> inline static
+    void generate_subtree(EIt first, EIt last, Rect const& super_mbr, std::size_t values_count, 
+                            subtree_elements_counts const& subtree_counts, Node& subtree, std::size_t dim, Parameters const& parameters)
     {
         assert(static_cast<std::size_t>(std::distance(first, last)) == values_count);
-
-        subtree.nodes.emplace_back();
-        auto& n = subtree.nodes.back();
 
         if (subtree_counts.max_count <= 1)
         {
             assert(values_count <= parameters.get_max_elements());
 
-            n.leaf.reserve(values_count);
+            subtree.leaf.reserve(values_count);
             for(;first != last; ++first)
             {
-                auto& e = indexer[*first];
-                n.leaf.push_back(e);
-                extend_bounds(n.mbr, e);
-                if(n.rank > e.rank) { n.rank = e.rank; }
+                auto& e = *first;
+                subtree.leaf.push_back(e);
+                extend_bounds(subtree.mbr, e);
+                if(subtree.rank > e.rank) { subtree.rank = e.rank; }
             }
 
             return;
@@ -204,66 +134,75 @@ private:
         next_subtree_counts.min_count /= parameters.get_max_elements();
 
         auto nodes_count = calculate_nodes_count(values_count, subtree_counts);
-        n.nodes.reserve(nodes_count);
+        subtree.nodes.reserve(nodes_count);
 
-        partition_subtree(first, last, indexer, super_mbr, values_count, subtree_counts, next_subtree_counts,
-            n, parameters);
+        partition_subtree(first, last, super_mbr, values_count, subtree_counts, next_subtree_counts,
+            subtree, dim, parameters);
     }
 
-    template <typename EIt, typename IdxIt> inline static
-    void partition_subtree(EIt first, EIt last, const IdxIt& indexer, const Rect& super_mbr,
-                           std::size_t values_count,
+    template <typename EIt> inline static
+    void partition_subtree(EIt first, EIt last, Rect const& super_mbr, std::size_t values_count,
                            subtree_elements_counts const& subtree_counts,
                            subtree_elements_counts const& next_subtree_counts,
-                           Node & elements, Parameters const& parameters)
+                           Node & elements, std::size_t dim, Parameters const& parameters)
     {
-        assert(0 < std::distance(first, last) && static_cast<std::size_t>(std::distance(first, last)) == values_count);
+        assert(std::distance(first, last) > 0 && static_cast<std::size_t>(std::distance(first, last)) == values_count);
 
         assert(subtree_counts.min_count <= values_count);
 
         if (values_count <= subtree_counts.max_count)
         {
-            generate_subtree(first, last, indexer, super_mbr, values_count, next_subtree_counts, elements, parameters);
-            extend_bounds(elements.mbr, elements.nodes.back().mbr);
-            if(elements.rank > elements.nodes.back().rank) { elements.rank = elements.nodes.back().rank; }
+            elements.nodes.emplace_back();
+            auto& n = elements.nodes.back();
+
+            dim = (dim + 1) % 2;
+
+            generate_subtree(first, last, super_mbr, values_count, next_subtree_counts, n, dim, parameters);
+
+            extend_bounds(elements.mbr, n.mbr);
+            if(elements.rank > n.rank) { elements.rank = n.rank; }
+
             return;
         }
         
-        auto median_count = calculate_median(values_count, subtree_counts);
+        const auto median_count = calculate_median(values_count, subtree_counts);
         auto median = first + median_count;
-
-        auto greatest_dim_index = get_longest_edge_dimension(super_mbr);
 
         auto first_med_mbr = super_mbr; 
         auto med_last_mbr = super_mbr;
-        if(greatest_dim_index == 0)
+
+        if(dim == 0)
         {
-            std::nth_element(first, median, last, [&](int i1, int i2) { return indexer[i1].x < indexer[i2].x; });
-            first_med_mbr.hx = median != first ? indexer[*median].x : indexer[*first].x;
-            med_last_mbr.lx = indexer[*median].x;
+            nth_element_dimension<0>(first, median, last);
+            split_mbr<0>(first, median, first_med_mbr, med_last_mbr);
         }
         else
         {
-            std::nth_element(first, median, last, [&](int i1, int i2) { return indexer[i1].y < indexer[i2].y; });
-            first_med_mbr.hy = median != first ? indexer[*median].y : indexer[*first].y;
-            med_last_mbr.ly = indexer[*median].y;
+            nth_element_dimension<1>(first, median, last);
+            split_mbr<1>(first, median, first_med_mbr, med_last_mbr);
         }
         
-        partition_subtree(first, median, indexer, first_med_mbr,
-                          median_count, subtree_counts, next_subtree_counts,
-                          elements, parameters);
-        partition_subtree(median, last, indexer, med_last_mbr,
-                          values_count - median_count, subtree_counts, next_subtree_counts,
-                          elements, parameters);
-    }
-
-    inline static
-    std::size_t get_longest_edge_dimension(const Rect& r)
-    {
-        return r.hx - r.lx > r.hy - r.ly ? 0 : 1;
+        partition_subtree(first, median, first_med_mbr, median_count, subtree_counts, next_subtree_counts,
+                          elements, dim, parameters);
+        partition_subtree(median, last, med_last_mbr, values_count - median_count, subtree_counts, next_subtree_counts,
+                          elements, dim, parameters);
     }
 
    
+    template<std::size_t I, typename EIt> inline static
+    void nth_element_dimension(EIt first, EIt n, EIt last)
+    {
+        typedef std::iterator_traits<EIt>::value_type it_value_type; 
+        std::nth_element(first, n, last, [](it_value_type const& lhs, it_value_type const& rhs) { return get_dim_coord<I>(lhs) < get_dim_coord<I>(rhs); });
+    }
+
+    template<std::size_t I, typename EIt> inline static
+    void split_mbr(EIt first, EIt median, Rect& first_med_mbr, Rect& med_last_mbr)
+    {
+        get_dim_coord_hi<I>(first_med_mbr) = median != first ? get_dim_coord<I>(*median) : get_dim_coord<I>(*first);
+        get_dim_coord_lo<I>(med_last_mbr) = get_dim_coord<I>(*median);
+    }
+
     inline static
     subtree_elements_counts calculate_subtree_elements_counts(std::size_t elements_count, Parameters const& parameters, std::size_t& height)
     {
@@ -325,9 +264,13 @@ private:
                 else
                 {
                     if ( n == 0 )                                       
+                    {
                         median_count = r;                              
+                    }
                     else
+                    {
                         median_count = ((n+2)/2) * subtree_counts.max_count;
+                    }
                 }
             }
         }
@@ -353,13 +296,13 @@ private:
     }
 
     template<typename OutIter>
-    void query_recursive(const Rect& region, OutIter& out_it)
+    void query_recursive(Rect const& region, OutIter& out_it)
     {
         recursive_search(m_root, region, out_it);
     }
 
     template<typename OutIter>
-    void recursive_search(const Node& subtree_node, const Rect& region, OutIter& out_it)
+    void recursive_search(Node const& subtree_node, Rect const& region, OutIter& out_it)
     {
         for(const auto& node : subtree_node.nodes)
         {
@@ -392,7 +335,7 @@ private:
     }
 
     template<typename OutIter>
-    void add_leafs(const Node& subtree_node, const Rect& region, OutIter& out_it)
+    void add_leafs(Node const& subtree_node, Rect const& region, OutIter& out_it)
     {
         if(subtree_node.is_leaf())
         {
@@ -416,9 +359,9 @@ private:
     }
 
     template<typename OutIter>
-    void query_iterative(const Rect& region, OutIter& out_it)
+    void query_iterative(Rect const& region, OutIter& out_it)
     {
-        nodesToSearch.push_back(&m_root.nodes.front()); // TODO: fix this. one extra level due to generate_subtree algorithm and me not wanting to do a deep copy of the tree.
+        nodesToSearch.push_back(&m_root);
 
         while(!nodesToSearch.empty())
         {
@@ -485,7 +428,7 @@ private:
 private:
     Node m_root;
     Parameters m_parameters;
-    TaskStack<Node*> nodesToSearch; // gains .1ms over vector
+    TaskStack<Node*> nodesToSearch; 
     size_t m_values_count;
     size_t m_height;
 };

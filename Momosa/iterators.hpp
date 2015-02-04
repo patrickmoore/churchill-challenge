@@ -91,7 +91,7 @@ protected:
                 move_max_to_back();
             }
         }
-        else if(value < container.back()) // TODO: make this a predicate
+        else if(value < container.back()) 
         {
             container.back() = value;
             move_max_to_back();
