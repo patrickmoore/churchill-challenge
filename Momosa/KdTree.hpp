@@ -90,7 +90,7 @@ public:
     bool is_leaf() { return !bucket.empty(); }
 
     std::vector<Point> bucket;
-    std::vector<FastPoint> fast_bucket; // Note: needs to be indexed the same as bucket
+    std::vector<KdPoint> fast_bucket; // Note: needs to be indexed the same as bucket
     Rect mbr;
     int32_t rank;
     int32_t parent;

@@ -21,6 +21,8 @@
 #include "statistics.hpp"
 #include "profile.hpp"
 
+#include <iostream>
+
 //
 //
 //
@@ -54,14 +56,16 @@ private:
     }
 
 private:
-    typedef RTree<Point, rtree_parameters<64>> rtree_t;
+    typedef Point point_t;
+    typedef RTree<point_t, rtree_parameters<80, 40>> rtree_t;
 
-    static const size_t partition_size = 150000;
-    static const size_t linear_search_threshold = 800;
+    static const size_t partition_size = 200000;
+    static const size_t linear_search_threshold = 1000;
 
     std::vector<rtree_t> m_trees;
-    std::vector<Point> m_results;
-    std::vector<Point> m_points_sorted[2];
+    std::vector<point_t> m_results;
+    std::vector<point_t> m_points_sorted[2];
+
     statistics::Point m_mean;
     statistics::Point m_stddev;
     Rect mbr;
@@ -69,20 +73,20 @@ private:
 
 SearchContextRTree::Impl::Impl(Point const* points_begin, Point const* points_end)
 {
-    if(std::distance(points_begin, points_end) <= 0) { return; }
+    std::size_t num_points = static_cast<std::size_t>(std::distance(points_begin, points_end));
+    if(num_points <= 0) { return; }
 
-    std::vector<Point> points;
-
+    std::vector<point_t> points;
     points.insert(points.begin(), points_begin, points_end);
-    points.erase(std::remove_if(points.begin(), points.end(), [](Point const& p){ return (abs(p.x) > 1.0e9 || abs(p.y) > 1.0e9); }  ), points.end());
+    points.erase(std::remove_if(points.begin(), points.end(), [](point_t const& p){ return (abs(p.x) > 1.0e9 || abs(p.y) > 1.0e9); }  ), points.end());
 
     concurrency::parallel_sort(points.begin(), points.end());
 
     m_points_sorted[0] = points;
-    concurrency::parallel_sort(m_points_sorted[0].begin(), m_points_sorted[0].end(), [](Point const& p1, Point const& p2) { return p1.x < p2.x; } );
+    concurrency::parallel_sort(m_points_sorted[0].begin(), m_points_sorted[0].end(), [](point_t const& p1, point_t const& p2) { return p1.x < p2.x; } );
 
     m_points_sorted[1] = points;
-    concurrency::parallel_sort(m_points_sorted[1].begin(), m_points_sorted[1].end(), [](Point const& p1, Point const& p2) { return p1.y < p2.y; } );
+    concurrency::parallel_sort(m_points_sorted[1].begin(), m_points_sorted[1].end(), [](point_t const& p1, point_t const& p2) { return p1.y < p2.y; } );
 
     initialize(mbr);
 
@@ -131,7 +135,7 @@ void SearchContextRTree::Impl::search_tree(Rect const& region, Reporter& reporte
 template<std::size_t I, typename Iter, class Reporter>
 void SearchContextRTree::Impl::search_linear(Iter first, Iter last, Rect const& region, Reporter& reporter)
 {
-    auto start = std::lower_bound(first, last, get_dim_coord_lo<I>(region), [](Point const& p, float v) { return get_dim_coord<I>(p) < v; });
+    auto start = std::lower_bound(first, last, get_dim_coord_lo<I>(region), [](point_t const& p, float v) { return get_dim_coord<I>(p) < v; });
     for(; start != last && get_dim_coord<I>(*start) <= get_dim_coord_hi<I>(region); ++start)
     {
         auto& p = *start;
@@ -167,7 +171,7 @@ int32_t SearchContextRTree::Impl::search_impl(Rect const& region, int32_t const 
     const double phi[2] = { calculate_contained_percentage<0>(region), calculate_contained_percentage<1>(region) };
     const auto dim = phi[0] < phi[1] ? 0 : 1;
 
-    const auto num_points_probability = static_cast<std::size_t>(phi[dim] * m_points_sorted[dim].size());
+    auto num_points_probability = static_cast<std::size_t>(phi[dim] * m_points_sorted[dim].size());
 
     if(num_points_probability > linear_search_threshold)
     {

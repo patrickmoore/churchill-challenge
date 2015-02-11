@@ -58,7 +58,9 @@ inline static
 struct Point
 {
     Point() : x(0.0), y(0.0) {}
-    Point(::Point const& p) : x(p.x), y(p.y) {}
+
+    template<typename OtherPoint>
+    Point(OtherPoint const& p) : x(p.x), y(p.y) {}
     Point(double x_, double y_) : x(x_), y(y_) {}
 
     Point& operator+=(Point const& rhs) 
@@ -87,7 +89,8 @@ public:
      calculator() : count(0) {}
 
     // Calculate std deviation in one pass.  http://www.cs.berkeley.edu/~mhoemmen/cs194/Tutorials/variance.pdf
-     void apply(::Point const& point)
+     template<typename OtherPoint>
+     void apply(OtherPoint const& point)
      {
         count++;
 

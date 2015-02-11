@@ -35,7 +35,7 @@ public:
     {
     }
 
-    __forceinline min_con_iterator& operator=(value_type const& value)
+    inline min_con_iterator& operator=(value_type const& value)
     {
         insert_impl(value);
         return (*this);
@@ -75,13 +75,13 @@ public:
     void clear() { container.clear(); }
 
 protected:
-    __forceinline void move_max_to_back()
+    inline void move_max_to_back()
     {
         auto max_val_pos = std::max_element(container.begin(), container.end()); 
         std::iter_swap(max_val_pos, (container.end()-1));
     }
 
-    __forceinline void insert_impl(value_type const& value)
+    inline void insert_impl(value_type const& value)
     {
         if(container._Mylast < container._Myend)  // size() < capacity()
         {

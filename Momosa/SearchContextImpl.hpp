@@ -25,10 +25,22 @@ template<class T>
 class SearchContextImpl
 {
 public:
-    int32_t search(Rect const& rect, int32_t count, Point* out_points) 
+    int32_t search(Rect const& rect, int32_t const count, Point* out_points) 
     {
         return static_cast<T*>(this)->search_impl(rect, count, out_points);
     }
+};
+
+class SearchContextHashGrid: public SearchContextImpl<SearchContextHashGrid>
+{
+public:
+    SearchContextHashGrid(Point const* points_begin, Point const* points_end);
+    ~SearchContextHashGrid();
+    int32_t search_impl(Rect const& rect, int32_t const count, Point* out_points);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
 };
 
 class SearchContextRTree : public SearchContextImpl<SearchContextRTree>
@@ -36,7 +48,19 @@ class SearchContextRTree : public SearchContextImpl<SearchContextRTree>
 public:
     SearchContextRTree(Point const* points_begin, Point const* points_end);
     ~SearchContextRTree();
-    int32_t search_impl(Rect const& rect, int32_t count, Point* out_points);
+    int32_t search_impl(Rect const& rect, int32_t const count, Point* out_points);
+
+private:
+    class Impl;
+    std::unique_ptr<Impl> m_impl;
+};
+
+class SearchContextKdTree: public SearchContextImpl<SearchContextKdTree>
+{
+public:
+    SearchContextKdTree(Point const* points_begin, Point const* points_end);
+    ~SearchContextKdTree();
+    int32_t search_impl(Rect const& rect, int32_t const count, Point* out_points);
 
 private:
     class Impl;

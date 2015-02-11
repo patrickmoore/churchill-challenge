@@ -21,21 +21,23 @@
 #include <assert.h>
 
 #include "TaskStack.hpp"
-#include "point_search.h"
+#include "point_utils.hpp"
 
 template <std::size_t MaxElements>
 struct default_min_elements
 {
-    static const std::size_t raw_value = (MaxElements * 4) / 10;
+    static const std::size_t raw_value = (MaxElements * 3) / 10;
     static const std::size_t value = 1 <= raw_value ? raw_value : 1;
 };
 
-template <std::size_t MaxElements, std::size_t MinElements = default_min_elements<MaxElements>::value>
+template <std::size_t MaxLeafElements, std::size_t MaxElements, std::size_t MinElements = default_min_elements<MaxElements>::value>
 struct rtree_parameters
 {
+    static const std::size_t max_leaf_elements = MaxLeafElements;
     static const std::size_t max_elements = MaxElements;
     static const std::size_t min_elements = MinElements;
 
+    static std::size_t get_max_leaf_elements() { return MaxLeafElements; }
     static std::size_t get_max_elements() { return MaxElements; }
     static std::size_t get_min_elements() { return MinElements; }
 };
@@ -58,7 +60,6 @@ public:
 
         if(!intersects(region, m_root.mbr)) { return; }
 
-        // note: profiling shows iterative is ~.1.5-2.5 microsecs faster per query
         query_iterative(region, out_it);
     }
 
@@ -113,9 +114,9 @@ private:
     {
         assert(static_cast<std::size_t>(std::distance(first, last)) == values_count);
 
-        if (subtree_counts.max_count <= 1)
+        if (values_count <= parameters.get_max_leaf_elements() || subtree_counts.max_count <= 1)
         {
-            assert(values_count <= parameters.get_max_elements());
+            assert(values_count <= parameters.get_max_leaf_elements());
 
             subtree.leaf.reserve(values_count);
             for(;first != last; ++first)
@@ -224,7 +225,7 @@ private:
         auto n = count / subtree_counts.max_count;
         auto r = count % subtree_counts.max_count;
 
-        if ( 0 < r && r < subtree_counts.min_count )
+        if (r > 0 && r < subtree_counts.min_count)
         {
             auto count_minus_min = count - subtree_counts.min_count;
             n = count_minus_min / subtree_counts.max_count;
@@ -232,8 +233,10 @@ private:
             ++n;
         }
 
-        if ( 0 < r )
+        if(r > 0)
+        {
             ++n;
+        }
 
         return n;
     }
@@ -245,9 +248,9 @@ private:
         auto r = count % subtree_counts.max_count;
         auto median_count = (n / 2) * subtree_counts.max_count;
 
-        if ( 0 != r )
+        if(r != 0)
         {
-            if ( subtree_counts.min_count <= r )
+            if(subtree_counts.min_count <= r)
             {
                 median_count = ((n+1)/2) * subtree_counts.max_count;
             }
@@ -256,14 +259,14 @@ private:
                 auto count_minus_min = count - subtree_counts.min_count;
                 n = count_minus_min / subtree_counts.max_count;
                 r = count_minus_min % subtree_counts.max_count;
-                if ( r == 0 )                               
+                if(r == 0)                               
                 {
                     
                     median_count = ((n+1)/2) * subtree_counts.max_count;     
                 }
                 else
                 {
-                    if ( n == 0 )                                       
+                    if(n == 0)                                       
                     {
                         median_count = r;                              
                     }
@@ -410,7 +413,8 @@ private:
                         for(const auto& p : node.leaf)
                         {
                             if(p.rank > out_it.get_max_rank()) { break; }
-                            if(within(region, p))
+
+                            if(contains(region, p))
                             {
                                 *out_it = p;
                             }
